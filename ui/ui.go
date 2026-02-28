@@ -403,6 +403,7 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 	}
 
 	var cropBtn *widget.Button
+	var previewBtn *widget.Button
 
 	openInputBtn := widget.NewButtonWithIcon("打开", theme.FolderOpenIcon(), func() {
 		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
@@ -489,6 +490,7 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 					} else {
 						statusLabel.SetText("剪裁完成!")
 						progressBar.SetValue(100)
+						previewBtn.Enable()
 					}
 					cropBtn.Enable()
 				})
@@ -497,9 +499,17 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 	})
 	cropBtn.Disable()
 
+	previewBtn = widget.NewButtonWithIcon("预览", theme.MediaPlayIcon(), func() {
+		if outputPath != "" {
+			openPlayerWindow(outputPath, nil)
+		}
+	})
+	previewBtn.Disable()
+
 	toolbar := container.NewHBox(
 		openInputBtn,
 		cropBtn,
+		previewBtn,
 	)
 
 	content := container.NewBorder(
@@ -550,6 +560,24 @@ func formatTimeSec(seconds float64) string {
 func NewMergeTab(window fyne.Window) fyne.Widget {
 	var files []string
 	var selectedIndex int = -1
+	var outputPath string
+	var progressBar *widget.ProgressBar
+	var statusLabel *widget.Label
+	var previewImage *canvas.Image
+	var loadingLabel *widget.Label
+
+	progressBar = widget.NewProgressBar()
+	progressBar.Min = 0
+	progressBar.Max = 100
+	progressBar.Value = 0
+
+	statusLabel = widget.NewLabel("")
+
+	previewImage = canvas.NewImageFromResource(nil)
+	previewImage.FillMode = canvas.ImageFillContain
+	previewImage.SetMinSize(fyne.NewSize(320, 180))
+
+	loadingLabel = widget.NewLabel("")
 
 	list := widget.NewList(
 		func() int { return len(files) },
@@ -563,15 +591,38 @@ func NewMergeTab(window fyne.Window) fyne.Widget {
 
 	list.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
+		if selectedIndex >= 0 && selectedIndex < len(files) {
+			loadingLabel.SetText("正在生成预览...")
+			go func() {
+				data, err := ffmpeg.ExtractFrame(files[selectedIndex], 0.5)
+				if err != nil {
+					loadingLabel.SetText("")
+					return
+				}
+				img, _, err := image.Decode(bytes.NewReader(data))
+				if err != nil {
+					loadingLabel.SetText("")
+					return
+				}
+				rgba := image.NewRGBA(img.Bounds())
+				for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+					for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+						rgba.Set(x, y, img.At(x, y))
+					}
+				}
+				fyne.Do(func() {
+					previewImage.Image = rgba
+					previewImage.Refresh()
+					loadingLabel.SetText("")
+				})
+			}()
+		}
 	}
 
-	pathEntry := widget.NewEntry()
-	pathEntry.SetPlaceHolder("输出文件路径...")
+	var mergeBtn *widget.Button
+	var previewBtn *widget.Button
 
-	progressBar := widget.NewProgressBar()
-	statusLabel := widget.NewLabel("")
-
-	addBtn := widget.NewButton("添加文件", func() {
+	addBtn := widget.NewButtonWithIcon("添加", theme.FolderOpenIcon(), func() {
 		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
 			if err != nil {
 				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
@@ -582,62 +633,108 @@ func NewMergeTab(window fyne.Window) fyne.Widget {
 			}
 			files = append(files, closer.URI().Path())
 			list.Refresh()
+			mergeBtn.Enable()
 		}, window)
 	})
 
-	removeBtn := widget.NewButton("移除选中", func() {
+	removeBtn := widget.NewButtonWithIcon("移除", theme.DeleteIcon(), func() {
 		if selectedIndex >= 0 && selectedIndex < len(files) {
 			files = append(files[:selectedIndex], files[selectedIndex+1:]...)
 			list.Refresh()
 			selectedIndex = -1
+			previewImage.Image = nil
+			previewImage.Refresh()
 		}
 	})
 
-	var mergeBtn *widget.Button
-	mergeBtn = widget.NewButton("开始拼接", func() {
+	mergeBtn = widget.NewButtonWithIcon("拼接", theme.MediaRecordIcon(), func() {
 		if len(files) < 2 {
 			statusLabel.SetText("请至少添加2个文件")
 			return
 		}
-		outputPath := pathEntry.Text
-		if outputPath == "" {
-			statusLabel.SetText("请填写输出路径")
-			return
-		}
 
-		statusLabel.SetText("拼接中...")
-		mergeBtn.Disable()
+		dialog.ShowFileSave(func(closer fyne.URIWriteCloser, err error) {
+			if err != nil {
+				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
+				return
+			}
+			if closer == nil {
+				return
+			}
+			outputPath = closer.URI().Path()
 
-		go func() {
-			err := ffmpeg.Merge(files, outputPath, func(p ffmpeg.Progress) {
-				progressBar.SetValue(p.Percent)
-				statusLabel.SetText(fmt.Sprintf("拼接中... %.1f%%", p.Percent))
-			})
+			ext := ".mp4"
+			os.Remove(outputPath)
+			if len(outputPath) >= 4 && outputPath[len(outputPath)-4:] == ".mp4" {
+				ext = ""
+			} else if len(outputPath) >= 4 && outputPath[len(outputPath)-4:] != ".mp4" {
+				ext = ".mp4"
+			}
+			if ext != "" {
+				outputPath = outputPath + ext
+			}
 
-			fyne.Do(func() {
-				if err != nil {
-					statusLabel.SetText(fmt.Sprintf("拼接失败: %v", err))
-				} else {
-					statusLabel.SetText("拼接完成!")
-					progressBar.SetValue(100)
-				}
-				mergeBtn.Enable()
-			})
-		}()
+			statusLabel.SetText("拼接中...")
+			mergeBtn.Disable()
+
+			go func() {
+				err := ffmpeg.Merge(files, outputPath, func(p ffmpeg.Progress) {
+					progress := p.Percent
+					fyne.DoAndWait(func() {
+						progressBar.SetValue(progress)
+						statusLabel.SetText(fmt.Sprintf("拼接中... %.1f%%", progress))
+					})
+				})
+
+				fyne.Do(func() {
+					if err != nil {
+						statusLabel.SetText(fmt.Sprintf("拼接失败: %v", err))
+					} else {
+						statusLabel.SetText("拼接完成!")
+						progressBar.SetValue(100)
+						previewBtn.Enable()
+					}
+					mergeBtn.Enable()
+				})
+			}()
+		}, window)
 	})
+	mergeBtn.Disable()
 
-	buttons := container.NewHBox(addBtn, removeBtn)
+	previewBtn = widget.NewButtonWithIcon("预览", theme.MediaPlayIcon(), func() {
+		if outputPath != "" {
+			openPlayerWindow(outputPath, nil)
+		}
+	})
+	previewBtn.Disable()
 
-	content := container.NewVBox(
-		widget.NewLabel("文件列表:"),
-		container.NewMax(list),
-		buttons,
-		widget.NewLabel("输出文件:"),
-		pathEntry,
-		layout.NewSpacer(),
+	toolbar := container.NewHBox(
+		addBtn,
+		removeBtn,
 		mergeBtn,
-		progressBar,
-		statusLabel,
+		previewBtn,
+	)
+
+	content := container.NewBorder(
+		toolbar,
+		nil,
+		nil,
+		nil,
+		container.NewVBox(
+			widget.NewLabel("文件列表:"),
+			container.NewMax(list),
+			widget.NewSeparator(),
+			container.NewHBox(
+				previewImage,
+				container.NewVBox(
+					loadingLabel,
+					layout.NewSpacer(),
+				),
+			),
+			progressBar,
+			statusLabel,
+			layout.NewSpacer(),
+		),
 	)
 
 	return container.NewScroll(content)
