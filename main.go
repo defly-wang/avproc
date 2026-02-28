@@ -23,27 +23,18 @@ func main() {
 	a := app.NewWithID("com.avproc.app")
 	a.Settings().SetTheme(theme.LightTheme())
 
-	a.SetIcon(theme.MediaVideoIcon())
+	iconPath := "icon.png"
+	if _, err := os.Stat(iconPath); err == nil {
+		icon, err := fyne.LoadResourceFromPath(iconPath)
+		if err == nil {
+			a.SetIcon(icon)
+		}
+	} else {
+		a.SetIcon(theme.MediaVideoIcon())
+	}
 
 	w := a.NewWindow("AVProc - 音视频处理工具")
 	w.Resize(fyne.NewSize(900, 650))
-
-	if desk, ok := a.(desktop.App); ok {
-		desk.SetSystemTrayWindow(w)
-
-		menu := fyne.NewMenu("AVProc",
-			fyne.NewMenuItem("显示", func() {
-				w.Show()
-				w.RequestFocus()
-			}),
-			fyne.NewMenuItemSeparator(),
-			fyne.NewMenuItem("退出", func() {
-				a.Quit()
-			}),
-		)
-		desk.SetSystemTrayMenu(menu)
-		desk.SetSystemTrayIcon(theme.MediaVideoIcon())
-	}
 
 	w.SetCloseIntercept(func() {
 		w.Hide()
@@ -51,6 +42,35 @@ func main() {
 
 	content := ui.NewMainUI(w)
 	w.SetContent(content)
+
+	if desk, ok := a.(desktop.App); ok {
+		fyne.DoAndWait(func() {
+			desk.SetSystemTrayWindow(w)
+		})
+
+		menu := fyne.NewMenu("AVProc",
+			fyne.NewMenuItem("显示", func() {
+				fyne.DoAndWait(func() {
+					w.Show()
+					w.RequestFocus()
+				})
+			}),
+			fyne.NewMenuItemSeparator(),
+			fyne.NewMenuItem("退出", func() {
+				a.Quit()
+			}),
+		)
+		desk.SetSystemTrayMenu(menu)
+
+		if _, err := os.Stat(iconPath); err == nil {
+			icon, err := fyne.LoadResourceFromPath(iconPath)
+			if err == nil {
+				desk.SetSystemTrayIcon(icon)
+			}
+		} else {
+			desk.SetSystemTrayIcon(theme.MediaVideoIcon())
+		}
+	}
 
 	log.Println("应用已启动，点击关闭按钮最小化到系统托盘")
 	w.ShowAndRun()

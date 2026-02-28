@@ -48,6 +48,7 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 	loadingLabel := widget.NewLabel("")
 
 	var convertBtn *widget.Button
+	var previewBtn *widget.Button
 
 	openInputBtn := widget.NewButtonWithIcon("打开", theme.FolderOpenIcon(), func() {
 		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
@@ -130,6 +131,7 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 					} else {
 						statusLabel.SetText("转换完成!")
 						progressBar.SetValue(100)
+						previewBtn.Enable()
 					}
 					convertBtn.Enable()
 				})
@@ -138,11 +140,19 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 	})
 	convertBtn.Disable()
 
+	previewBtn = widget.NewButtonWithIcon("预览", theme.MediaPlayIcon(), func() {
+		if outputPath != "" {
+			OpenPlayerWindow(outputPath, nil)
+		}
+	})
+	previewBtn.Disable()
+
 	toolbar := container.NewHBox(
 		openInputBtn,
 		formatSelect,
 		qualitySelect,
 		convertBtn,
+		previewBtn,
 	)
 
 	content := container.NewBorder(
