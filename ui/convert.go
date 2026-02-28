@@ -1,0 +1,170 @@
+package ui
+
+import (
+	"avproc/ffmpeg"
+	"bytes"
+	"fmt"
+	"image"
+	"os"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+)
+
+func NewConvertTab(window fyne.Window) fyne.Widget {
+	var quality string = "medium"
+	var progress float64
+	var inputPath string
+	var outputPath string
+
+	formatSelect := widget.NewSelect([]string{
+		"mp4", "avi", "mkv", "mov", "wmv", "flv", "webm",
+		"mp3", "wav", "aac", "ogg", "flac", "m4a", "wma",
+	}, func(s string) {})
+	formatSelect.SetSelected("mp4")
+
+	qualitySelect := widget.NewSelect([]string{"high", "medium", "low"}, func(s string) {
+		quality = s
+	})
+	qualitySelect.SetSelected("medium")
+
+	progressBar := widget.NewProgressBar()
+	progressBar.Min = 0
+	progressBar.Max = 100
+	progressBar.Value = 0
+
+	statusLabel := widget.NewLabel("")
+	pathLabel := widget.NewLabel("未选择文件")
+
+	previewImage := canvas.NewImageFromResource(nil)
+	previewImage.FillMode = canvas.ImageFillContain
+	previewImage.SetMinSize(fyne.NewSize(320, 180))
+
+	loadingLabel := widget.NewLabel("")
+
+	var convertBtn *widget.Button
+
+	openInputBtn := widget.NewButtonWithIcon("打开", theme.FolderOpenIcon(), func() {
+		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
+			if err != nil {
+				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
+				return
+			}
+			if closer == nil {
+				return
+			}
+			inputPath = closer.URI().Path()
+			pathLabel.SetText(inputPath)
+			convertBtn.Enable()
+
+			loadingLabel.SetText("正在生成预览...")
+			go func() {
+				data, err := ffmpeg.ExtractFrame(inputPath, 1.0)
+				if err != nil {
+					loadingLabel.SetText("")
+					return
+				}
+				img, _, err := image.Decode(bytes.NewReader(data))
+				if err != nil {
+					loadingLabel.SetText("")
+					return
+				}
+				rgba := image.NewRGBA(img.Bounds())
+				for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+					for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+						rgba.Set(x, y, img.At(x, y))
+					}
+				}
+				previewImage.Image = rgba
+				previewImage.Refresh()
+				loadingLabel.SetText("")
+			}()
+		}, window)
+	})
+
+	convertBtn = widget.NewButtonWithIcon("转换", theme.MediaRecordIcon(), func() {
+		if inputPath == "" {
+			statusLabel.SetText("请先选择输入文件")
+			return
+		}
+
+		dialog.ShowFileSave(func(closer fyne.URIWriteCloser, err error) {
+			if err != nil {
+				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
+				return
+			}
+			if closer == nil {
+				return
+			}
+			outputPath = closer.URI().Path()
+
+			format := formatSelect.Selected
+			if format != "" && outputPath != "" {
+				ext := "." + format
+				os.Remove(outputPath)
+				if len(outputPath) < len(ext) || outputPath[len(outputPath)-len(ext):] != ext {
+					outputPath = outputPath + ext
+				}
+			}
+
+			statusLabel.SetText("转换中...")
+			convertBtn.Disable()
+
+			go func() {
+				err := ffmpeg.Convert(inputPath, outputPath, quality, func(p ffmpeg.Progress) {
+					progress = p.Percent
+					fyne.DoAndWait(func() {
+						progressBar.SetValue(progress)
+						statusLabel.SetText(fmt.Sprintf("转换中... %.1f%%", progress))
+					})
+				})
+
+				fyne.Do(func() {
+					if err != nil {
+						statusLabel.SetText(fmt.Sprintf("转换失败: %v", err))
+					} else {
+						statusLabel.SetText("转换完成!")
+						progressBar.SetValue(100)
+					}
+					convertBtn.Enable()
+				})
+			}()
+		}, window)
+	})
+	convertBtn.Disable()
+
+	toolbar := container.NewHBox(
+		openInputBtn,
+		formatSelect,
+		qualitySelect,
+		convertBtn,
+	)
+
+	content := container.NewBorder(
+		toolbar,
+		nil,
+		nil,
+		nil,
+		container.NewVBox(
+			pathLabel,
+			widget.NewSeparator(),
+			container.NewHBox(
+				previewImage,
+				container.NewVBox(
+					loadingLabel,
+					layout.NewSpacer(),
+				),
+			),
+			progressBar,
+			statusLabel,
+			layout.NewSpacer(),
+		),
+	)
+
+	return container.NewScroll(content)
+}
