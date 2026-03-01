@@ -1,3 +1,5 @@
+//go:build !windows
+
 package ffmpeg
 
 import (
@@ -82,39 +84,11 @@ func (p *Player) Play(onTime func(float64)) {
 			p.current += frameInterval
 			if p.current >= p.duration {
 				p.current = p.duration
-				onTime(p.current)
-				p.mu.Unlock()
-				if p.audioCmd != nil && p.audioCmd.Process != nil {
-					p.audioCmd.Process.Kill()
-				}
-				return
 			}
 			p.mu.Unlock()
 
 			time.Sleep(time.Duration(frameInterval * float64(time.Second)))
 		}
-	}()
-}
-
-func (p *Player) startAudio(startPos float64, wasPaused bool) {
-	if p.audioCmd != nil && p.audioCmd.Process != nil {
-		p.audioCmd.Process.Kill()
-		p.audioCmd = nil
-	}
-
-	if wasPaused {
-		return
-	}
-
-	p.audioCmd = exec.Command("ffplay", "-volume", "100", "-ss", fmt.Sprintf("%.3f", startPos), "-autoexit", p.path)
-	p.audioCmd.Stderr = os.Stderr
-	if err := p.audioCmd.Start(); err != nil {
-		fmt.Printf("Failed to start player: %v\n", err)
-		return
-	}
-
-	go func() {
-		p.audioCmd.Wait()
 	}()
 }
 
@@ -130,16 +104,30 @@ func (p *Player) Resume() {
 	p.paused = false
 }
 
-func (p *Player) Seek(pos float64) {
-	select {
-	case p.seekPos <- pos:
-	default:
-	}
-}
-
 func (p *Player) Stop() {
 	close(p.stopped)
+}
+
+func (p *Player) Seek(pos float64) {
+	p.seekPos <- pos
+}
+
+func (p *Player) startAudio(pos float64, paused bool) {
 	if p.audioCmd != nil && p.audioCmd.Process != nil {
 		p.audioCmd.Process.Kill()
+	}
+
+	args := []string{"-i", p.path, "-ss", fmt.Sprintf("%.2f", pos), "-f", "wav", "-"}
+	if paused {
+		args = append([]string{"-i", p.path, "-ss", fmt.Sprintf("%.2f", pos), "-f", "wav", "-"}, "-nostdin")
+	}
+
+	p.audioCmd = exec.Command("ffplay", args...)
+	p.audioCmd.Stdout = os.Stdout
+	p.audioCmd.Stderr = os.Stderr
+
+	if err := p.audioCmd.Start(); err != nil {
+		fmt.Printf("Error starting audio: %v\n", err)
+		return
 	}
 }
