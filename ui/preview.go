@@ -2,15 +2,14 @@ package ui
 
 import (
 	"avproc/ffmpeg"
-	"bytes"
 	"fmt"
-	"image"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -39,7 +38,8 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 	playBtn.Disable()
 
 	selectBtn := widget.NewButtonWithIcon("打开", theme.FolderOpenIcon(), func() {
-		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
+		filter := storage.NewExtensionFileFilter([]string{".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm", ".mp3", ".wav", ".aac", ".flac", ".ogg", ".m4a"})
+		fd := dialog.NewFileOpen(func(closer fyne.URIReadCloser, err error) {
 			if err != nil {
 				infoLabel.SetText(fmt.Sprintf("错误: %v", err))
 				return
@@ -60,32 +60,9 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 			if len(info.VideoTracks) > 0 || len(info.AudioTracks) > 0 {
 				playBtn.Enable()
 			}
-
-			if len(info.VideoTracks) > 0 {
-				loadingLabel.SetText("正在生成预览...")
-				go func() {
-					data, err := ffmpeg.ExtractFrame(path, 1.0)
-					if err != nil {
-						loadingLabel.SetText("")
-						return
-					}
-					img, _, err := image.Decode(bytes.NewReader(data))
-					if err != nil {
-						loadingLabel.SetText("")
-						return
-					}
-					rgba := image.NewRGBA(img.Bounds())
-					for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
-						for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
-							rgba.Set(x, y, img.At(x, y))
-						}
-					}
-					previewImage.Image = rgba
-					previewImage.Refresh()
-					loadingLabel.SetText("")
-				}()
-			}
 		}, window)
+		fd.SetFilter(filter)
+		fd.Show()
 	})
 
 	toolbar := container.NewHBox(

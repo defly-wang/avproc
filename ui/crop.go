@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -95,7 +96,8 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 	var previewBtn *widget.Button
 
 	openInputBtn := widget.NewButtonWithIcon("打开", theme.FolderOpenIcon(), func() {
-		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
+		filter := storage.NewExtensionFileFilter([]string{".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm"})
+		fd := dialog.NewFileOpen(func(closer fyne.URIReadCloser, err error) {
 			if err != nil {
 				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
 				return
@@ -129,6 +131,8 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 				loadingLabel.SetText("")
 			})
 		}, window)
+		fd.SetFilter(filter)
+		fd.Show()
 	})
 
 	cropBtn = widget.NewButtonWithIcon("剪裁", theme.MediaRecordIcon(), func() {

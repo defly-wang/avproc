@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -97,7 +98,8 @@ func NewMergeTab(window fyne.Window) fyne.Widget {
 	}
 
 	addBtn := widget.NewButtonWithIcon("添加", theme.FolderOpenIcon(), func() {
-		dialog.ShowFileOpen(func(closer fyne.URIReadCloser, err error) {
+		filter := storage.NewExtensionFileFilter([]string{".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm"})
+		fd := dialog.NewFileOpen(func(closer fyne.URIReadCloser, err error) {
 			if err != nil {
 				statusLabel.SetText(fmt.Sprintf("错误: %v", err))
 				return
@@ -107,6 +109,8 @@ func NewMergeTab(window fyne.Window) fyne.Widget {
 			}
 			addFile(closer.URI().Path())
 		}, window)
+		fd.SetFilter(filter)
+		fd.Show()
 	})
 
 	removeBtn := widget.NewButtonWithIcon("移除", theme.DeleteIcon(), func() {
