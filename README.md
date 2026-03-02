@@ -36,8 +36,10 @@
 - GTK3 库
 
 ### Windows
+
 - FFmpeg
-- mpv（用于播放）
+
+> 注意：Windows 版本已内置播放器，不再依赖 mpv
 
 ## 编译方法
 
@@ -60,25 +62,22 @@ go build ./...
 
 ### Windows
 
-#### 方法一：直接编译（需要在 Windows 环境或使用交叉编译）
-
 ```bash
-# 在 Windows 上
+# 安装 MinGW (用于 CGO 编译)
+# 下载地址: https://github.com/mstorsjo/llvm-mingw/releases
+
+# 设置环境变量
+set PATH=C:\path\to\llvm-mingw\bin;%PATH%
+set CGO_ENABLED=1
+
+# 编译
 go build -o avproc.exe .
 
-# 或者在 Linux 上使用 Docker 交叉编译
-docker run --rm -v /path/to/avproc:/src -w /src -e CGO_ENABLED=1 -e GOOS=windows -e GOARCH=amd64 -e CC=x86_64-w64-mingw32-gcc golang:1.22 sh -c "apt-get update && apt-get install -y mingw-w64 && go build -o avproc.exe ."
+# 或者使用打包脚本
+build.bat
 ```
 
-#### 方法二：使用 fyne 打包
-
-```bash
-# 安装 fyne 工具
-go install fyne.io/fyne/v2/cmd/fyne@latest
-
-# 打包为 Windows 可执行文件
-fyne package -os windows --use-raw-icon
-```
+打包脚本会自动将 FFmpeg 二进制文件复制到 dist 目录。
 
 ## 使用方法
 
@@ -130,7 +129,7 @@ avproc.exe
 
 - **GUI 框架**：Fyne (Go)
 - **音视频处理**：FFmpeg
-- **播放器**：mpv
+- **播放器**：内置播放器 (Windows) / mpv (Linux)
 
 ## 许可证
 

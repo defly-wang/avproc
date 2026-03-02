@@ -11,6 +11,18 @@
 
 ## 开发记录
 
+### 2026-03-01
+
+#### Windows 兼容性和打包
+- 添加 Windows 平台支持
+- 创建 `ffmpeg/player_windows.go` 处理 Windows 信号兼容性问题
+- 添加 `build.bat` 打包脚本，自动包含 FFmpeg 二进制文件
+
+#### 用户体验优化
+- 为所有文件打开对话框添加文件过滤器
+- 过滤器显示：媒体文件、视频文件、音频文件
+- 支持格式：mp4, avi, mkv, mov, flv, wmv, webm, mp3, wav, aac, flac, ogg, m4a
+
 ### 2026-02-28
 
 #### UI 框架搭建

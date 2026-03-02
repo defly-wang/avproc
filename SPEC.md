@@ -113,3 +113,10 @@
 - FFmpeg (必须): 系统命令 `ffmpeg` 和 `ffprobe`
 - Go >= 1.21
 - fyne.io/fyne v2
+
+## 7. Windows 支持
+
+- 使用 LLVM MinGW 进行 CGO 编译
+- 内置播放器实现，无需 mpv
+- 打包脚本自动包含 FFmpeg 二进制文件
+- 文件对话框支持过滤器筛选
