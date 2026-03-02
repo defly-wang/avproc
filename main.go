@@ -23,7 +23,7 @@ func main() {
 	a := app.NewWithID("com.avproc.app")
 	a.Settings().SetTheme(theme.LightTheme())
 
-	iconPath := "icon.png"
+	iconPath := "assets/icons/icon.png"
 	if _, err := os.Stat(iconPath); err == nil {
 		icon, err := fyne.LoadResourceFromPath(iconPath)
 		if err == nil {
