@@ -1,0 +1,17 @@
+# Build output
+dist/
+avproc.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+coverage.txt
