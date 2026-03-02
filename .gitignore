@@ -1,6 +1,10 @@
 # Build output
 dist/
+avproc
 avproc.exe
+
+# FFmpeg (extracted for Windows build)
+ffmpeg/
 
 # IDE
 .idea/
