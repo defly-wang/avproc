@@ -87,7 +87,7 @@ func (fc *FrameCache) Init(path string, dur float64) {
 	fc.mu.Unlock()
 }
 
-func (fc *FrameCache) Preload(loader func(int) []byte) {
+func (fc *FrameCache) Preload(loader func(int) []byte, onDone func()) {
 	fc.mu.Lock()
 	if fc.loading || fc.path == "" {
 		fc.mu.Unlock()
@@ -109,6 +109,9 @@ func (fc *FrameCache) Preload(loader func(int) []byte) {
 		fc.mu.Lock()
 		fc.loading = false
 		fc.mu.Unlock()
+		if onDone != nil {
+			onDone()
+		}
 	}()
 }
 
@@ -191,7 +194,11 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 		}
 
 		loadingLabel.SetText("正在缓存预览图...")
-		frameCache.Preload(loader)
+		frameCache.Preload(loader, func() {
+			fyne.Do(func() {
+				loadingLabel.SetText("")
+			})
+		})
 	}
 
 	minSlider.OnChanged = func(value float64) {
@@ -199,6 +206,12 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			maxSlider.SetValue(value)
 		}
 		UpdateTimeLabel(minSlider.Value, maxSlider.Value, duration, timeLabel)
+		if inputPath != "" && duration > 0 && frameCache != nil {
+			second := int(value)
+			if second >= 0 && second <= int(duration) {
+				loadFrame(second, previewImageStart)
+			}
+		}
 	}
 
 	maxSlider.OnChanged = func(value float64) {
@@ -206,6 +219,12 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			minSlider.SetValue(value)
 		}
 		UpdateTimeLabel(minSlider.Value, maxSlider.Value, duration, timeLabel)
+		if inputPath != "" && duration > 0 && frameCache != nil {
+			second := int(value)
+			if second >= 0 && second <= int(duration) {
+				loadFrame(second, previewImageEnd)
+			}
+		}
 	}
 
 	var cropBtn *widget.Button
