@@ -19,10 +19,9 @@ import (
 )
 
 type FrameCache struct {
-	mu       sync.Mutex
-	frames   map[int][]byte
-	duration float64
-	loading  bool
+	mu      sync.Mutex
+	frames  map[int][]byte
+	loading bool
 }
 
 func NewFrameCache() *FrameCache {
@@ -31,29 +30,63 @@ func NewFrameCache() *FrameCache {
 	}
 }
 
-func (fc *FrameCache) GetFrame(second int) ([]byte, bool) {
+func (fc *FrameCache) GetOrLoad(second int, path string, loader func(int, string) []byte) []byte {
 	fc.mu.Lock()
-	defer fc.mu.Unlock()
-	data, ok := fc.frames[second]
-	return data, ok
+	if data, ok := fc.frames[second]; ok {
+		fc.mu.Unlock()
+		return data
+	}
+	fc.mu.Unlock()
+
+	data := loader(second, path)
+	if data != nil {
+		fc.mu.Lock()
+		fc.frames[second] = data
+		fc.mu.Unlock()
+	}
+	return data
 }
 
-func (fc *FrameCache) SetFrame(second int, data []byte) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-	fc.frames[second] = data
-}
+func (fc *FrameCache) Preload(path string, duration float64, loader func(int, string) []byte) {
+	if fc == nil || duration <= 0 {
+		return
+	}
 
-func (fc *FrameCache) IsLoading() bool {
 	fc.mu.Lock()
-	defer fc.mu.Unlock()
-	return fc.loading
-}
+	if fc.loading {
+		fc.mu.Unlock()
+		return
+	}
+	fc.loading = true
+	fc.mu.Unlock()
 
-func (fc *FrameCache) SetLoading(loading bool) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-	fc.loading = loading
+	go func() {
+		interval := 1
+		if duration > 60 {
+			interval = 2
+		}
+		if duration > 300 {
+			interval = 5
+		}
+
+		for sec := 0; sec <= int(duration); sec += interval {
+			fc.mu.Lock()
+			if _, ok := fc.frames[sec]; !ok {
+				fc.mu.Unlock()
+				if data := loader(sec, path); data != nil {
+					fc.mu.Lock()
+					fc.frames[sec] = data
+					fc.mu.Unlock()
+				}
+			} else {
+				fc.mu.Unlock()
+			}
+		}
+
+		fc.mu.Lock()
+		fc.loading = false
+		fc.mu.Unlock()
+	}()
 }
 
 func NewCropTab(window fyne.Window) fyne.Widget {
@@ -107,52 +140,35 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 	}
 
 	loadFrame := func(second int, imgView *canvas.Image) {
-		if data, ok := frameCache.GetFrame(second); ok {
-			displayImage(data, imgView)
-			return
+		loader := func(sec int, path string) []byte {
+			data, err := ffmpeg.ExtractFrame(path, float64(sec))
+			if err != nil {
+				return nil
+			}
+			return data
 		}
 
-		go func() {
-			data, err := ffmpeg.ExtractFrame(inputPath, float64(second))
-			if err != nil {
-				return
-			}
-			frameCache.SetFrame(second, data)
+		data := frameCache.GetOrLoad(second, inputPath, loader)
+		if data != nil {
 			displayImage(data, imgView)
-		}()
+		}
 	}
 
 	preloadFrames := func() {
-		if frameCache == nil || duration <= 0 {
+		if frameCache == nil {
 			return
 		}
 
-		frameCache.SetLoading(true)
+		loader := func(sec int, path string) []byte {
+			data, err := ffmpeg.ExtractFrame(path, float64(sec))
+			if err != nil {
+				return nil
+			}
+			return data
+		}
+
 		loadingLabel.SetText("正在缓存预览图...")
-
-		go func() {
-			interval := 1
-			if duration > 60 {
-				interval = 2
-			}
-			if duration > 300 {
-				interval = 5
-			}
-
-			for sec := 0; sec <= int(duration); sec += interval {
-				if _, ok := frameCache.GetFrame(sec); !ok {
-					data, err := ffmpeg.ExtractFrame(inputPath, float64(sec))
-					if err == nil {
-						frameCache.SetFrame(sec, data)
-					}
-				}
-			}
-
-			fyne.Do(func() {
-				frameCache.SetLoading(false)
-				loadingLabel.SetText("")
-			})
-		}()
+		frameCache.Preload(inputPath, duration, loader)
 	}
 
 	minSlider.OnChanged = func(value float64) {
