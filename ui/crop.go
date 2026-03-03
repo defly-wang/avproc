@@ -199,12 +199,6 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			maxSlider.SetValue(value)
 		}
 		UpdateTimeLabel(minSlider.Value, maxSlider.Value, duration, timeLabel)
-		if inputPath != "" && duration > 0 && frameCache != nil {
-			second := int(value)
-			if second > 0 && second < int(duration) {
-				loadFrame(second, previewImageStart)
-			}
-		}
 	}
 
 	maxSlider.OnChanged = func(value float64) {
@@ -212,12 +206,6 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			minSlider.SetValue(value)
 		}
 		UpdateTimeLabel(minSlider.Value, maxSlider.Value, duration, timeLabel)
-		if inputPath != "" && duration > 0 && frameCache != nil {
-			second := int(value)
-			if second > 0 && second < int(duration) {
-				loadFrame(second, previewImageEnd)
-			}
-		}
 	}
 
 	var cropBtn *widget.Button

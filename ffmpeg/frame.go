@@ -11,13 +11,15 @@ func ExtractFrame(path string, timestamp float64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer os.RemoveAll(tmpDir)
 	tmpPath := tmpDir + "/frame.jpg"
 
 	args := []string{
 		"-ss", fmt.Sprintf("%.3f", timestamp),
 		"-i", path,
 		"-vframes", "1",
-		"-q:v", "2",
+		"-vf", "scale=320:-1",
+		"-q:v", "5",
 		"-y",
 		tmpPath,
 	}
@@ -26,12 +28,10 @@ func ExtractFrame(path string, timestamp float64) ([]byte, error) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		os.RemoveAll(tmpDir)
 		return nil, err
 	}
 
 	data, err := os.ReadFile(tmpPath)
-	os.RemoveAll(tmpDir)
 	return data, err
 }
 
