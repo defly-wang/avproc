@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Convert(input, output, quality string, onProgress func(Progress)) error {
+func Convert(input, output, quality, resolution string, onProgress func(Progress)) error {
 	info, err := GetMediaInfo(input)
 	if err != nil {
 		return err
@@ -49,6 +49,10 @@ func Convert(input, output, quality string, onProgress func(Progress)) error {
 			args = append(args, "-vn", "-acodec", "wmav2", "-ab", "192k")
 		}
 	} else {
+		if resolution != "" && resolution != "original" {
+			args = append(args, "-vf", "scale="+resolution)
+		}
+
 		switch quality {
 		case "high":
 			args = append(args, "-crf", "18")

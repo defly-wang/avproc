@@ -19,6 +19,7 @@ import (
 
 func NewConvertTab(window fyne.Window) fyne.Widget {
 	var quality string = "medium"
+	var resolution string = "original"
 	var progress float64
 	var inputPath string
 	var outputPath string
@@ -33,6 +34,13 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 		quality = s
 	})
 	qualitySelect.SetSelected("medium")
+
+	resolutionSelect := widget.NewSelect([]string{
+		"original", "1920:1080", "1280:720", "854:480", "640:360",
+	}, func(s string) {
+		resolution = s
+	})
+	resolutionSelect.SetSelected("original")
 
 	progressBar := widget.NewProgressBar()
 	progressBar.Min = 0
@@ -121,7 +129,7 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 			convertBtn.Disable()
 
 			go func() {
-				err := ffmpeg.Convert(inputPath, outputPath, quality, func(p ffmpeg.Progress) {
+				err := ffmpeg.Convert(inputPath, outputPath, quality, resolution, func(p ffmpeg.Progress) {
 					progress = p.Percent
 					fyne.DoAndWait(func() {
 						progressBar.SetValue(progress)
@@ -155,6 +163,7 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 		openInputBtn,
 		formatSelect,
 		qualitySelect,
+		resolutionSelect,
 		convertBtn,
 		previewBtn,
 	)
