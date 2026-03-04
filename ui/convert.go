@@ -49,6 +49,8 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 
 	statusLabel := widget.NewLabel("")
 	pathLabel := widget.NewLabel("未选择文件")
+	infoLabel := widget.NewLabel("")
+	infoLabel.Wrapping = fyne.TextWrapWord
 
 	previewImage := canvas.NewImageFromResource(nil)
 	previewImage.FillMode = canvas.ImageFillContain
@@ -71,6 +73,23 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 			}
 			inputPath = closer.URI().Path()
 			pathLabel.SetText(inputPath)
+
+			info, err := ffmpeg.GetMediaInfo(inputPath)
+			if err == nil {
+				infoText := fmt.Sprintf("时长: %.2f秒\n大小: %s\n", info.DurationSec, info.Size)
+				if len(info.VideoTracks) > 0 {
+					vt := info.VideoTracks[0]
+					infoText += fmt.Sprintf("视频: %s\n分辨率: %dx%d\n帧率: %s\n比特率: %s\n",
+						vt.Codec, vt.Width, vt.Height, vt.FrameRate, vt.Bitrate)
+				}
+				if len(info.AudioTracks) > 0 {
+					at := info.AudioTracks[0]
+					infoText += fmt.Sprintf("音频: %s\n采样率: %s\n声道: %d",
+						at.Codec, at.SampleRate, at.Channels)
+				}
+				infoLabel.SetText(infoText)
+			}
+
 			convertBtn.Enable()
 
 			loadingLabel.SetText("正在生成预览...")
@@ -177,10 +196,14 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 			pathLabel,
 			widget.NewSeparator(),
 			container.NewHBox(
-				previewImage,
 				container.NewVBox(
+					previewImage,
 					loadingLabel,
-					layout.NewSpacer(),
+				),
+				layout.NewSpacer(),
+				container.NewVBox(
+					widget.NewLabel("文件信息"),
+					infoLabel,
 				),
 			),
 			progressBar,
