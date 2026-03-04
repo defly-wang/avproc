@@ -51,12 +51,21 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 	pathLabel := widget.NewLabel("未选择文件")
 	infoLabel := widget.NewLabel("")
 	infoLabel.Wrapping = fyne.TextWrapWord
+	loadingLabel := widget.NewLabel("")
 
 	previewImage := canvas.NewImageFromResource(nil)
 	previewImage.FillMode = canvas.ImageFillContain
 	previewImage.SetMinSize(fyne.NewSize(320, 180))
 
-	loadingLabel := widget.NewLabel("")
+	previewWithLabel := container.NewVBox(
+		previewImage,
+		loadingLabel,
+	)
+
+	infoContainer := container.NewVBox(
+		widget.NewLabel("文件信息"),
+		infoLabel,
+	)
 
 	var convertBtn *widget.Button
 	var previewBtn *widget.Button
@@ -196,15 +205,8 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 			pathLabel,
 			widget.NewSeparator(),
 			container.NewHBox(
-				container.NewVBox(
-					previewImage,
-					loadingLabel,
-				),
-				layout.NewSpacer(),
-				container.NewVBox(
-					widget.NewLabel("文件信息"),
-					infoLabel,
-				),
+				previewWithLabel,
+				infoContainer,
 			),
 			progressBar,
 			statusLabel,
