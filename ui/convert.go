@@ -105,12 +105,12 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 			go func() {
 				data, err := ffmpeg.ExtractFrame(inputPath, 1.0)
 				if err != nil {
-					loadingLabel.SetText("")
+					fyne.Do(func() { loadingLabel.SetText("") })
 					return
 				}
 				img, _, err := image.Decode(bytes.NewReader(data))
 				if err != nil {
-					loadingLabel.SetText("")
+					fyne.Do(func() { loadingLabel.SetText("") })
 					return
 				}
 				rgba := image.NewRGBA(img.Bounds())
@@ -119,9 +119,16 @@ func NewConvertTab(window fyne.Window) fyne.Widget {
 						rgba.Set(x, y, img.At(x, y))
 					}
 				}
-				previewImage.Image = rgba
-				previewImage.Refresh()
-				loadingLabel.SetText("")
+				fyne.Do(func() {
+					previewImage.Image = rgba
+					previewImage.Refresh()
+					loadingLabel.SetText("")
+					winWidth := window.Canvas().Size().Width
+					infoWidth := winWidth - 340
+					if infoWidth > 200 {
+						infoContainer.Resize(fyne.NewSize(infoWidth, 180))
+					}
+				})
 			}()
 		}, window)
 		fd.SetFilter(filter)
