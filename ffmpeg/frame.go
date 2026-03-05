@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 func ExtractFrame(path string, timestamp float64) ([]byte, error) {
@@ -12,15 +13,16 @@ func ExtractFrame(path string, timestamp float64) ([]byte, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(tmpDir)
-	tmpPath := tmpDir + "/frame.jpg"
+	tmpPath := filepath.Join(tmpDir, "frame.jpg")
 
 	args := []string{
+		"-y",
 		"-ss", fmt.Sprintf("%.3f", timestamp),
 		"-i", path,
-		"-vframes", "1",
-		"-vf", "scale=320:-1",
-		"-q:v", "5",
-		"-y",
+		"-frames:v", "1",
+		"-vf", "scale=240:-1",
+		"-f", "image2",
+		"-update", "1",
 		tmpPath,
 	}
 
@@ -32,7 +34,10 @@ func ExtractFrame(path string, timestamp float64) ([]byte, error) {
 	}
 
 	data, err := os.ReadFile(tmpPath)
-	return data, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to read extracted frame: %w", err)
+	}
+	return data, nil
 }
 
 func Play(path string) error {

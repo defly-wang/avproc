@@ -25,6 +25,7 @@ type FrameCache struct {
 	path       string
 	duration   float64
 	preloadInt int
+	step       int
 }
 
 func NewFrameCache() *FrameCache {
@@ -44,7 +45,15 @@ func (fc *FrameCache) Clear() {
 func (fc *FrameCache) Get(second int) []byte {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	return fc.frames[second]
+	if data, ok := fc.frames[second]; ok {
+		return data
+	}
+	if fc.step <= 1 {
+		return nil
+	}
+	step := fc.step
+	closest := ((second + step/2) / step) * step
+	return fc.frames[closest]
 }
 
 func (fc *FrameCache) Set(second int, data []byte) {
@@ -59,6 +68,14 @@ func (fc *FrameCache) GetOrLoad(second int, loader func(int) []byte) []byte {
 		fc.mu.Unlock()
 		return data
 	}
+	if fc.step > 1 {
+		step := fc.step
+		closest := ((second + step/2) / step) * step
+		if data, ok := fc.frames[closest]; ok {
+			fc.mu.Unlock()
+			return data
+		}
+	}
 	fc.mu.Unlock()
 
 	data := loader(second)
@@ -70,10 +87,11 @@ func (fc *FrameCache) GetOrLoad(second int, loader func(int) []byte) []byte {
 	return data
 }
 
-func (fc *FrameCache) Init(path string, dur float64) {
+func (fc *FrameCache) Init(path string, dur float64, stepVal int) {
 	fc.mu.Lock()
 	fc.path = path
 	fc.duration = dur
+	fc.step = stepVal
 	for k := range fc.frames {
 		delete(fc.frames, k)
 	}
@@ -95,17 +113,37 @@ func (fc *FrameCache) Preload(loader func(int) []byte, onDone func()) {
 	}
 	fc.loading = true
 	dur := fc.duration
-	interval := fc.preloadInt
+	interval := fc.step
+	if interval < 2 {
+		interval = 2
+	}
 	fc.mu.Unlock()
+
+	var wg sync.WaitGroup
+	concurrency := 3
+
+	secChan := make(chan int, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for sec := range secChan {
+				if fc.Get(sec) == nil {
+					if data := loader(sec); data != nil {
+						fc.Set(sec, data)
+					}
+				}
+			}
+		}()
+	}
 
 	go func() {
 		for sec := 0; sec <= int(dur); sec += interval {
-			if fc.Get(sec) == nil {
-				if data := loader(sec); data != nil {
-					fc.Set(sec, data)
-				}
-			}
+			secChan <- sec
 		}
+		close(secChan)
+		wg.Wait()
 		fc.mu.Lock()
 		fc.loading = false
 		fc.mu.Unlock()
@@ -166,8 +204,12 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 	}
 
 	loadFrame := func(second int, imgView *canvas.Image) {
+		currentPath := inputPath
 		loader := func(sec int) []byte {
-			data, err := ffmpeg.ExtractFrame(inputPath, float64(sec))
+			if currentPath != inputPath {
+				return nil
+			}
+			data, err := ffmpeg.ExtractFrame(currentPath, float64(sec))
 			if err != nil {
 				return nil
 			}
@@ -185,8 +227,12 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			return
 		}
 
+		currentPath := inputPath
 		loader := func(sec int) []byte {
-			data, err := ffmpeg.ExtractFrame(inputPath, float64(sec))
+			if currentPath != inputPath {
+				return nil
+			}
+			data, err := ffmpeg.ExtractFrame(currentPath, float64(sec))
 			if err != nil {
 				return nil
 			}
@@ -252,11 +298,28 @@ func NewCropTab(window fyne.Window) fyne.Widget {
 			pathLabel.SetText(inputPath)
 			cropBtn.Enable()
 
+			stepVal := 1
+			if duration > 300 {
+				stepVal = 10
+			} else if duration > 60 {
+				stepVal = 5
+			}
+
 			frameCache = NewFrameCache()
-			frameCache.Init(inputPath, duration)
+			frameCache.Init(inputPath, duration, stepVal)
 
 			minSlider.Max = duration
 			maxSlider.Max = duration
+			if duration > 300 {
+				minSlider.Step = 10
+				maxSlider.Step = 10
+			} else if duration > 60 {
+				minSlider.Step = 5
+				maxSlider.Step = 5
+			} else {
+				minSlider.Step = 1
+				maxSlider.Step = 1
+			}
 			minSlider.SetValue(0)
 			maxSlider.SetValue(duration)
 			UpdateTimeLabel(0, duration, duration, timeLabel)
