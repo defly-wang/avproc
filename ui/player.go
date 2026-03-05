@@ -20,7 +20,10 @@ func OpenPlayerWindow(path string, info *ffmpeg.MediaInfo) {
 		if runtime.GOOS == "windows" {
 			cmd = exec.Command("cmd", "/c", "start", "", path)
 		} else {
-			cmd = exec.Command("mpv", "--volume=100", "--osd-level=2", path)
+			cmd = exec.Command("xdg-open", path)
+			if err := cmd.Run(); err != nil {
+				cmd = exec.Command("ffplay", "-volume", "100", path)
+			}
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -2,7 +2,9 @@ package ui
 
 import (
 	"avproc/ffmpeg"
+	"bytes"
 	"fmt"
+	"image"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -20,7 +22,7 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 
 	pathLabel := widget.NewLabel("未选择文件")
 	infoLabel := widget.NewLabel("")
-	infoLabel.Wrapping = fyne.TextWrapWord
+	//infoLabel.Wrapping = fyne.TextWrapWord
 
 	previewImage := canvas.NewImageFromResource(nil)
 	previewImage.FillMode = canvas.ImageFillContain
@@ -60,6 +62,35 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 			if len(info.VideoTracks) > 0 || len(info.AudioTracks) > 0 {
 				playBtn.Enable()
 			}
+
+			loadingLabel.SetText("正在加载预览...")
+			go func() {
+				data, err := ffmpeg.ExtractFrame(path, 1.0)
+				if err != nil {
+					fyne.Do(func() {
+						loadingLabel.SetText("")
+					})
+					return
+				}
+				img, _, err := image.Decode(bytes.NewReader(data))
+				if err != nil {
+					fyne.Do(func() {
+						loadingLabel.SetText("")
+					})
+					return
+				}
+				rgba := image.NewRGBA(img.Bounds())
+				for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+					for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+						rgba.Set(x, y, img.At(x, y))
+					}
+				}
+				fyne.Do(func() {
+					previewImage.Image = rgba
+					previewImage.Refresh()
+					loadingLabel.SetText("")
+				})
+			}()
 		}, window)
 		fd.SetFilter(filter)
 		fd.Show()
@@ -68,6 +99,16 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 	toolbar := container.NewHBox(
 		selectBtn,
 		playBtn,
+	)
+
+	previewContainer := container.NewVBox(
+		previewImage,
+		loadingLabel,
+	)
+
+	infoContainer := container.NewVBox(
+		widget.NewLabel("文件信息"),
+		infoLabel,
 	)
 
 	content := container.NewBorder(
@@ -79,13 +120,11 @@ func NewPreviewTab(window fyne.Window) fyne.Widget {
 			pathLabel,
 			widget.NewSeparator(),
 			container.NewHBox(
-				previewImage,
-				container.NewVBox(
-					loadingLabel,
-					layout.NewSpacer(),
-				),
+				previewContainer,
+				layout.NewSpacer(),
+				infoContainer,
+				layout.NewSpacer(),
 			),
-			infoLabel,
 			layout.NewSpacer(),
 		),
 	)
