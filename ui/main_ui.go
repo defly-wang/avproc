@@ -3,7 +3,23 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 )
+
+func loadIcon(name string) fyne.Resource {
+	switch name {
+	case "preview":
+		return theme.MediaPlayIcon()
+	case "convert":
+		return theme.ViewRefreshIcon()
+	case "crop":
+		return theme.ZoomFitIcon()
+	case "merge":
+		return theme.FileIcon()
+	default:
+		return theme.DocumentIcon()
+	}
+}
 
 type MainUI struct {
 	window fyne.Window
@@ -19,10 +35,10 @@ func NewMainUI(window fyne.Window) fyne.CanvasObject {
 	merge := NewMergeTab(window)
 
 	ui.tabs = container.NewAppTabs(
-		container.NewTabItem("预览", preview),
-		container.NewTabItem("转换", convert),
-		container.NewTabItem("剪裁", crop),
-		container.NewTabItem("拼接", merge),
+		container.NewTabItemWithIcon("预览", loadIcon("preview"), preview),
+		container.NewTabItemWithIcon("转换", loadIcon("convert"), convert),
+		container.NewTabItemWithIcon("剪裁", loadIcon("crop"), crop),
+		container.NewTabItemWithIcon("拼接", loadIcon("merge"), merge),
 	)
 
 	ui.tabs.SetTabLocation(container.TabLocationTop)
