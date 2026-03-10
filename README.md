@@ -50,11 +50,7 @@
 ### 从 Release 下载（推荐）
 访问 [ Releases ](https://github.com/defly-wang/avproc/releases) 页面下载最新版本。
 
-Windows 用户下载 `dist` 目录下的文件即可运行：
-- `avproc.exe` - 主程序
-- `ffmpeg.exe` - FFmpeg
-- `ffplay.exe` - FFplay
-- `ffprobe.exe` - FFprobe
+Windows 用户下载 `avproc_x.x.x_win-amd64.zip` 并解压，运行 `avproc.exe` 即可。
 
 ## 编译方法
 
@@ -69,30 +65,36 @@ git clone https://github.com/defly-wang/avproc.git
 cd avproc
 
 # 编译
+./build.sh linux
+
+# 或手动编译
 go build -o avproc .
 
 # 运行
 ./avproc
 ```
 
-### Windows
+### Windows (Linux 交叉编译)
 
 ```bash
-# 安装 MinGW (用于 CGO 编译)
-# 下载地址: https://github.com/mstorsjo/llvm-mingw/releases
+# 安装交叉编译工具
+sudo apt install mingw-w64
 
-# 设置环境变量
-set PATH=C:\path\to\llvm-mingw\bin;%PATH%
-set CGO_ENABLED=1
+# 克隆项目
+git clone https://github.com/defly-wang/avproc.git
+cd avproc
 
-# 编译
-go build -o avproc.exe .
-
-# 或者使用打包脚本
-build.bat
+# 交叉编译
+./build.sh windows
 ```
 
-打包脚本会自动将 FFmpeg 二进制文件复制到 dist 目录。
+### 打包脚本
+
+```bash
+./build.sh linux     # 编译 Linux 版本
+./build.sh windows   # 编译 Windows 版本
+./build.sh all       # 编译所有平台
+```
 
 ## 使用方法
 
@@ -153,22 +155,25 @@ avproc/
 ├── ffmpeg/          # FFmpeg 封装库
 │   ├── check.go     # FFmpeg 检查
 │   ├── convert.go   # 格式转换
-│   ├── crop.go     # 视频剪裁
-│   ├── merge.go    # 视频拼接
-│   ├── frame.go    # 帧提取
-│   ├── info.go     # 媒体信息
-│   ├── player.go   # Linux 播放器
+│   ├── crop.go      # 视频剪裁
+│   ├── merge.go     # 视频拼接
+│   ├── frame.go     # 帧提取
+│   ├── info.go      # 媒体信息
+│   ├── player.go    # Linux 播放器
+│   ├── types.go     # 类型定义
 │   └── player_windows.go  # Windows 播放器
 ├── ui/              # 界面代码
-│   ├── main_ui.go  # 主界面
-│   ├── preview.go  # 预览功能
-│   ├── convert.go  # 转换功能
-│   ├── crop.go    # 剪裁功能
-│   ├── merge.go    # 拼接功能
-│   └── player.go   # 播放功能
+│   ├── main_ui.go   # 主界面
+│   ├── preview.go   # 预览功能
+│   ├── convert.go   # 转换功能
+│   ├── crop.go      # 剪裁功能
+│   ├── merge.go     # 拼接功能
+│   ├── player.go    # 播放功能
+│   └── utils.go     # 工具函数
+├── assets/icons/    # 图标资源
+├── build.sh         # 跨平台打包脚本
 ├── main.go          # 程序入口
-├── build.bat        # Windows 打包脚本
-└── README.md       # 说明文档
+└── README.md        # 说明文档
 ```
 
 ## 许可证
