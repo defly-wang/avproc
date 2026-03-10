@@ -49,15 +49,16 @@ EOF
 }
 
 build_windows() {
-    echo "Building Windows..."
+    echo "Building Windows (cross-compile)..."
     mkdir -p "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH"
 
-    if [ -d "ffmpeg" ]; then
-        mkdir -p "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH/ffmpeg"
-        cp ffmpeg/* "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH/ffmpeg/" 2>/dev/null || true
+    if command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+        echo "Using mingw-w64 cross-compiler..."
+        CC=x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH/$APP_NAME.exe" .
+    else
+        echo "mingw-w64 not found, please install: sudo apt install mingw-w64"
+        exit 1
     fi
-
-    GOOS=windows GOARCH=amd64 go build -o "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH/$APP_NAME.exe" .
 
     cd "$OUTPUT_DIR/$APP_NAME-$VERSION-win-$ARCH"
     zip -r "../${APP_NAME}_${VERSION}_win-${ARCH}.zip" .
