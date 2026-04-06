@@ -65,7 +65,7 @@ func Convert(input, output, quality, resolution string, onProgress func(Progress
 
 	args = append(args, "-progress", "pipe:1", output)
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.Command(FindFFmpeg(), args...)
 	cmd.Stderr = os.Stderr
 
 	pr, pw, err := os.Pipe()

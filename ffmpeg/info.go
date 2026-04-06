@@ -11,7 +11,9 @@ import (
 )
 
 func GetMediaInfo(path string) (*MediaInfo, error) {
-	cmd := exec.Command("ffprobe",
+	ffmpegDir := filepath.Dir(FindFFmpeg())
+	ffprobePath := filepath.Join(ffmpegDir, "ffprobe.exe")
+	cmd := exec.Command(ffprobePath,
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",

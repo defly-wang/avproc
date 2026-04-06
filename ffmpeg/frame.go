@@ -26,7 +26,7 @@ func ExtractFrame(path string, timestamp float64) ([]byte, error) {
 		tmpPath,
 	}
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.Command(FindFFmpeg(), args...)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {

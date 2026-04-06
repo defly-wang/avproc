@@ -26,7 +26,7 @@ func Merge(files []string, output string, onProgress func(Progress)) error {
 	}
 	totalDuration := info.DurationSec * float64(len(files))
 
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.Command(FindFFmpeg(),
 		"-f", "concat",
 		"-safe", "0",
 		"-i", tmpFile.Name(),

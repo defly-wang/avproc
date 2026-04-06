@@ -18,7 +18,7 @@ func Crop(input, output, startTime, endTime string, onProgress func(Progress)) e
 		output,
 	}
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.Command(FindFFmpeg(), args...)
 	cmd.Stderr = os.Stderr
 
 	pr, pw, err := os.Pipe()
